@@ -1,0 +1,52 @@
+﻿# C++
+x64/
+Debug/
+Release/
+*.exe
+*.dll
+*.obj
+*.pdb
+*.ilk
+*.lib
+*.exp
+App_cpp/Webauthn/x64/
+App_cpp/x64/
+App_cpp/.vs/
+
+# JavaScript
+node_modules/
+App_js/node_modules/
+npm-debug.log
+*.log
+
+# Python
+venv/
+env/
+__pycache__/
+App_python/venv/
+App_python/__pycache__/
+*.pyc
+*.pyo
+
+# Général
+.DS_Store
+*.log
+.vs/
+.vscode/
+*.user
+*.suo
+*.sln.cache
+*.obj
+*.exe
+*.pdb
+*.ilk
+*.pch
+
+# Ignorer les répertoires de build
+build/
+Debug/
+Release/
+
+# Ignorer les fichiers temporaires
+*.tmp
+*.log

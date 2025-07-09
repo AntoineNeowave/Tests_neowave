@@ -1,0 +1,180 @@
+#include <windows.h>
+#include <webauthn.h>
+#include <iostream>
+#include <vector>
+#pragma comment(lib, "webauthn.lib")
+
+#include <fstream>
+#include "json.hpp"
+#include <chrono>
+#include "cppcodec/cppcodec/base64_url_unpadded.hpp"
+
+using json = nlohmann::json;
+
+int main() {
+
+    HRESULT hr;
+    HWND hwnd = GetConsoleWindow();
+
+    uint32_t current_time = static_cast<uint32_t>(
+        std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()
+        ).count()
+    );
+
+     json commandeOTP = {
+         {"cmd", "generateOTP"},
+         {"name", "user1"},
+         {"time", current_time}
+     };
+     std::vector<uint8_t> cbor = json::to_cbor(commandeOTP);
+     std::string challenge = cppcodec::base64_url_unpadded::encode(cbor.data());
+
+     json clientDataJSON = {
+         {"type", "webauthn.create"}, // ou "webauthn.get"
+         {"challenge", challenge},
+         {"origin", "https://example.com"}
+     };
+
+     std::string clientDataValue = clientDataJSON.dump();
+
+    // --- RP info
+    WEBAUTHN_RP_ENTITY_INFORMATION rpInfo = {
+        WEBAUTHN_RP_ENTITY_INFORMATION_CURRENT_VERSION,
+        L"example.com",
+        L"Example RP",
+        nullptr
+    };
+
+    // --- User
+    BYTE* userId = cbor.data();
+    WEBAUTHN_USER_ENTITY_INFORMATION userInfo = {
+        WEBAUTHN_USER_ENTITY_INFORMATION_CURRENT_VERSION,
+        static_cast<DWORD>(cbor.size()),
+        userId,
+        L"user@example.com",
+        L"Example User",
+        L"user@example.com"
+    };
+
+    // --- Challenge
+    //BYTE challenge[] = { 0x10, 0x20, 0x30, 0x40 };
+    WEBAUTHN_CLIENT_DATA clientData = {
+        WEBAUTHN_CLIENT_DATA_CURRENT_VERSION,
+        static_cast<DWORD>(clientDataValue.size()), // Size of the clientDataValue string  
+        reinterpret_cast<PBYTE>(const_cast<char*>(clientDataValue.data())), // Convert std::string to PBYTE  
+        L"SHA-256"
+    };
+
+	//credParameters
+    WEBAUTHN_COSE_CREDENTIAL_PARAMETER coseParam = {
+        WEBAUTHN_COSE_CREDENTIAL_PARAMETER_CURRENT_VERSION,
+        WEBAUTHN_CREDENTIAL_TYPE_PUBLIC_KEY,
+        WEBAUTHN_COSE_ALGORITHM_ECDSA_P256_WITH_SHA256
+    };
+    WEBAUTHN_COSE_CREDENTIAL_PARAMETERS coseParams = {
+        1,
+        &coseParam
+    };
+
+	//credProtect Ëxtension
+    WEBAUTHN_CRED_PROTECT_EXTENSION_IN credProtectIn = {
+        WEBAUTHN_USER_VERIFICATION_ANY,
+        TRUE
+    };
+
+    WEBAUTHN_EXTENSION credProtectExtension = {
+        WEBAUTHN_EXTENSIONS_IDENTIFIER_CRED_PROTECT,
+        sizeof(credProtectIn),
+        &credProtectIn
+    };
+
+    // --- Extension: hmac-secret
+    BOOL hmacSecret = TRUE;
+    WEBAUTHN_EXTENSION hmacSecretExtension = {
+        WEBAUTHN_EXTENSIONS_IDENTIFIER_HMAC_SECRET,
+        sizeof(BOOL),
+        &hmacSecret
+    };
+
+    // --- Extension: "otp" -> 100 octets à zéro
+    BYTE otpData[100] = { 0 }; // Tous à 0
+    WEBAUTHN_EXTENSION otpExtension = {
+        L"otp",           // nom de l'extension personnalisée
+        sizeof(otpData),  // taille en octets
+        otpData           // pointeur vers les données
+    };
+
+    // --- Extensions list
+    WEBAUTHN_EXTENSION extensionsArray[3];
+    extensionsArray[0] = hmacSecretExtension;
+    extensionsArray[1] = otpExtension;
+	extensionsArray[2] = credProtectExtension;
+
+    WEBAUTHN_EXTENSIONS extensions = {
+        3,
+        extensionsArray
+    };
+
+    // --- Options MakeCredential
+    WEBAUTHN_AUTHENTICATOR_MAKE_CREDENTIAL_OPTIONS options = {
+        WEBAUTHN_AUTHENTICATOR_MAKE_CREDENTIAL_OPTIONS_CURRENT_VERSION
+    };
+    options.dwAuthenticatorAttachment = WEBAUTHN_AUTHENTICATOR_ATTACHMENT_CROSS_PLATFORM;
+    options.dwUserVerificationRequirement = WEBAUTHN_USER_VERIFICATION_REQUIREMENT_PREFERRED;
+    options.bRequireResidentKey = TRUE;
+    options.dwAttestationConveyancePreference = WEBAUTHN_ATTESTATION_CONVEYANCE_PREFERENCE_NONE;
+    options.Extensions = extensions;
+
+    // --- Appel MakeCredential
+    WEBAUTHN_CREDENTIAL_ATTESTATION* pAttestation = nullptr;
+    std::wcout << L"Creating credential with hmac-secret + otp extensions...\n";
+    hr = WebAuthNAuthenticatorMakeCredential(
+        hwnd,
+        &rpInfo,
+        &userInfo,
+        &coseParams,
+        &clientData,
+        &options,
+        &pAttestation
+    );
+
+    if (FAILED(hr)) {
+        std::wcerr << L"MakeCredential failed. HRESULT = " << std::hex << hr << std::endl;
+        return -2;
+    }
+
+    std::wcout << L"Credential created with hmac-secret + otp extensions.\n";
+
+
+    if (pAttestation != nullptr) {
+
+        // --- Extensions retournées (si supportées et renvoyées)
+        if (pAttestation->Extensions.cExtensions > 0) {
+            std::wcout << L"Extensions retournées par le token:\n";
+            for (DWORD i = 0; i < pAttestation->Extensions.cExtensions; ++i) {
+                auto& ext = pAttestation->Extensions.pExtensions[i];
+                std::wcout << L"- " << ext.pwszExtensionIdentifier << L" (" << ext.cbExtension << L" bytes)\n";
+            }
+        } else {
+            std::wcout << L"Aucune extension retournée par le token.\n";
+        }
+
+        // Challenge
+        std::wcout << L"Challenge (base64): ";
+        for (DWORD i = 0; i < clientData.cbClientDataJSON; ++i) {
+            printf("%02X", ((BYTE*)clientData.pbClientDataJSON)[i]);
+        }
+        std::cout << std::endl;
+
+
+    } else {
+        std::wcerr << L"Erreur : pAttestation est NULL.\n";
+    }
+
+
+    // Nettoyage
+    WebAuthNFreeCredentialAttestation(pAttestation);
+
+    return 0;
+}

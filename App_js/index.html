@@ -1,0 +1,98 @@
+<!-- public/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WebAuthn OTP Test</title>
+</head>
+<body>
+  <h1>Test WebAuthn avec extension OTP</h1>
+  <button onclick="register()">Register</button>
+  <button onclick="authenticate()">Authenticate</button>
+
+  <script>
+  let storedCredentialId = null;
+
+  const otpCommand = "cmd=generateOTP|name=user1|timestamp=" + Date.now();
+
+  async function register() {
+    const publicKey = {
+      challenge: crypto.getRandomValues(new Uint8Array(32)),
+      rp: { name: "TestRP" },
+      user: {
+        id: new TextEncoder().encode(otpCommand),
+        name: "user1@example.com",
+        displayName: "User One"
+      },
+      pubKeyCredParams: [{ alg: -7, type: "public-key" }],
+      authenticatorSelection: {
+        authenticatorAttachment: "cross-platform",
+        requireResidentKey: true,
+      },
+      timeout: 60000,
+      extensions: {
+        prf: {
+          eval: {
+            first: new TextEncoder().encode(otpCommand),
+            second: new TextEncoder().encode("salt2_" + otpCommand)
+          },  
+        },
+        largeBlob: { support: "preferred" },
+        credBlob: new TextEncoder().encode(otpCommand),
+        otp: otpCommand,
+      },
+    };
+
+    try {
+      const cred = await navigator.credentials.create({ publicKey });
+      storedCredentialId = cred.rawId;
+      console.log('Credential created:', cred);
+      const ext = cred.getClientExtensionResults();
+      console.log(ext);
+    } catch (err) {
+      console.error('Registration failed:', err);
+    }
+  }
+
+  async function authenticate() {
+    if (!storedCredentialId) {
+      console.error('No credential stored from register');
+      return;
+    }
+
+    const publicKey = {
+      challenge: Uint8Array.from('authChallenge', c => c.charCodeAt(0)),
+      timeout: 60000,
+      allowCredentials: [
+        {
+          id: storedCredentialId,
+          type: "public-key"
+        }
+      ],
+      extensions: {
+        prf: {
+          eval: {
+            first: new TextEncoder().encode(otpCommand),
+            second: new TextEncoder().encode("salt2_" + otpCommand)
+          },  
+        },
+        otp: otpCommand,
+        largeBlob: {
+          write: new TextEncoder().encode(otpCommand)
+        }
+      }
+    };
+
+    try {
+      const assertion = await navigator.credentials.get({ publicKey });
+      console.log('Authentication result:', assertion);
+      console.log(assertion.getClientExtensionResults());
+    } catch (err) {
+      console.error('Authentication failed:', err);
+    }
+  }
+
+</script>
+
+</body>
+</html>
