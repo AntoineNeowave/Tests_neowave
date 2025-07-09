@@ -92,7 +92,7 @@ server = Fido2Server({"id": "example.com", "name": "Example RP"}, attestation="d
 
 payload= b"seedOTP:12309812939129391291293912932789081"
 user_id_encoded=base64.b64encode(payload)
-user = {"id": user_id_encoded, "name": "User test"}
+user = {"id": payload, "name": "User test"}
 
 
 # Prepare parameters for makeCredential
@@ -131,15 +131,15 @@ print("Authenticate with salt:", salt.hex())
 print("New credential created!")
 response = result.response
 
-print("CLIENT DATA:", response.client_data) #objet json encodé en b64, envoyé par le client, contient des métadonnées sur la requête
-print("ATTESTATION OBJECT:", response.attestation_object) #objet binaire CBOR encodé contenant les données d'authentification etc.
+print("CLIENT DATA 1:", response.client_data) #objet json encodé en b64, envoyé par le client, contient des métadonnées sur la requête
+#print("ATTESTATION OBJECT:", response.attestation_object) #objet binaire CBOR encodé contenant les données d'authentification etc.
 print()
-print("CREDENTIAL DATA:", auth_data.credential_data) #détails sur la clé d'identitée
+#print("CREDENTIAL DATA:", auth_data.credential_data) #détails sur la clé d'identitée
 
 
 
 # Prepare parameters for getAssertion
-request_options, state = server.authenticate_begin(credentials, user_verification=uv)
+request_options, state = server.authenticate_begin(credentials, user_verification=uv, challenge=payload)
 
 # Authenticate the credential
 results = client.get_assertion(
@@ -185,15 +185,14 @@ print("Credential authenticated!")
 uh = result.response.user_handle
 if uh:
     print("User Handle (ID):", uh)
-    print("Decoded:", base64.b64decode(uh).decode(errors="ignore"))
 else:
     print("Pas de user_handle dans la réponse.")
 
 response = result.response
 
-print("CLIENT DATA:", response.client_data)
+print("CLIENT DATA 3:", response.client_data)
 print()
-print("AUTH DATA:", response.authenticator_data)
+#print("AUTH DATA:", response.authenticator_data)
 print("CREATE OPTION\n")
 pprint(create_options["publicKey"])
 
