@@ -40,9 +40,12 @@ from exampleutils import get_client
 from fido2.server import Fido2Server
 from fido2.ctap2 import Ctap2
 from fido2.hid import CAPABILITY, CtapHidDevice
-from fido2.cbor import decode
+from fido2.cbor import decode, encode
 from pprint import pprint
 from fido2.client import AttestationObject
+from fido2.client import Fido2Client
+from fido2.webauthn import PublicKeyCredentialCreationOptions, PublicKeyCredentialRpEntity, PublicKeyCredentialUserEntity
+from fido2.ctap import CtapError
 
 try:
     from fido2.pcsc import CtapPcscDevice
@@ -67,6 +70,26 @@ for dev in enumerate_devices():
 
     if dev.capabilities & CAPABILITY.CBOR:
         ctap2 = Ctap2(dev)
+
+        custom_data = {
+            "cmd": "generateOTP",
+            "name": "user1",
+            "time": 1720000000
+        }
+
+        cbor_payload = encode(custom_data)
+
+        # 4. Envoyer une commande personnalisée
+        # Exemple : commande CTAP2 non attribuée (ex: 0x50 à 0xBF réservée au fabricant)
+        CUSTOM_CTAP_COMMAND = 0x10
+
+        try:
+            response = ctap2.send_cbor(CUSTOM_CTAP_COMMAND, custom_data)
+            print("Réponse du token :", response)
+        except Exception as e:
+            print("Erreur lors de l'envoi :", e)
+
+
         info = ctap2.get_info()
         print("DEVICE INFO: %s" % info)
     else:
@@ -79,13 +102,8 @@ client, info = get_client()
 
 print("Extensions supported by device:", info.extensions)
 
-
-# Prefer UV if supported and configured
-if info and (info.options.get("uv") or info.options.get("bioEnroll")):
-    uv = "preferred"
-    print("Authenticator supports User Verification")
-else:
-    uv = "discouraged"
+# Préférer sans code PIN
+uv = "discouraged"
 
 # ==== 2. Définir l'identité du site (RP) ====
 server = Fido2Server({"id": "example.com", "name": "Example RP"}, attestation="direct")
@@ -98,19 +116,29 @@ user = {"id": payload, "name": "User test"}
 # Prepare parameters for makeCredential
 create_options, state = server.register_begin(
     user,
-    resident_key_requirement="required",
+    resident_key_requirement="discouraged",
     user_verification=uv,
     authenticator_attachment="cross-platform",
-    challenge=payload
-)
+    challenge=payload,
+    )
 
 # Create a credential
 result = client.make_credential(
     {
         **create_options["publicKey"],
-        "extensions": {"hmacCreateSecret": True},
+        "extensions": {
+            "hmacCreateSecret": True,
+            "otp": True
+        },
     }
 )
+
+
+print("=== EXTENSIONS DANS LA RÉPONSE DE CRÉATION ===")
+print("Client Extension Results:", result.client_extension_results)
+if hasattr(result.client_extension_results, '__dict__'):
+    print("Extensions détaillées:", vars(result.client_extension_results))
+
 
 # Complete registration
 auth_data = server.register_complete(state, result)
@@ -139,15 +167,28 @@ print()
 
 
 # Prepare parameters for getAssertion
-request_options, state = server.authenticate_begin(credentials, user_verification=uv, challenge=payload)
+
+request_options, state = server.authenticate_begin(
+    credentials, 
+    user_verification=uv, 
+    challenge=payload
+)
 
 # Authenticate the credential
 results = client.get_assertion(
     {
         **request_options["publicKey"],
-        "extensions": {"hmacGetSecret": {"salt1": salt}},
+        "extensions": {
+            "hmacGetSecret": {"salt1": salt},
+            "otp": True
+            },
     }
 )
+
+print("=== EXTENSIONS DANS LA RÉPONSE D'AUTHENTIFICATION ===")
+print("Client Extension Results:", result.client_extension_results)
+if hasattr(result.client_extension_results, '__dict__'):
+    print("Extensions détaillées:", vars(result.client_extension_results))
 
 # Only one cred in allowCredentials, only one response.
 result = results.get_response(0)
@@ -166,7 +207,10 @@ print("Authenticate with second salt:", salt2.hex())
 results = client.get_assertion(
     {
         **request_options["publicKey"],
-        "extensions": {"hmacGetSecret": {"salt1": salt, "salt2": salt2}},
+        "extensions": {
+            "hmacGetSecret": {"salt1": salt, "salt2": salt2},
+            "otp": True
+            },
     }
 )
 
@@ -198,3 +242,5 @@ pprint(create_options["publicKey"])
 
 print("\nREQUEST OPTION\n")
 pprint(request_options["publicKey"])
+
+
