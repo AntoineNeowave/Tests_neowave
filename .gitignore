@@ -28,6 +28,10 @@ App_python/__pycache__/
 *.pyc
 *.pyo
 
+# rust
+target
+app_rust/OTP/target
+
 # Général
 .DS_Store
 *.log
