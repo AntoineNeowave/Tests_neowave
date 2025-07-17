@@ -80,8 +80,8 @@ for dev in enumerate_devices():
         cbor_payload = encode(custom_data)
 
         # 4. Envoyer une commande personnalisée
-        # Exemple : commande CTAP2 non attribuée (ex: 0x50 à 0xBF réservée au fabricant)
-        CUSTOM_CTAP_COMMAND = 0x10
+        # Exemple : commande CTAP2 non attribuée (ex: 0x40 à 0xBF réservée au fabricant)
+        CUSTOM_CTAP_COMMAND = 0x50
 
         try:
             response = ctap2.send_cbor(CUSTOM_CTAP_COMMAND, custom_data)
