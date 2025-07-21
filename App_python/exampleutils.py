@@ -27,7 +27,7 @@ class MyExtension(Ctap2Extension):
         print(f"Extensions supportées: {getattr(ctap.info, 'extensions', [])}")
         supported = self.NAME in getattr(ctap.info, 'extensions', [])
         print(f"Extension '{self.NAME}' supportée: {supported}")
-        return True  # On retourne True pour tester même si non supportée
+        return "SEEDOTP:000000000000000000"  # On retourne une valeur pour tester même si non supportée
     
     def make_credential(self, ctap, options, pin_protocol):
         print(f"=== MyExtension.make_credential ===")
@@ -49,14 +49,14 @@ class MyRegistrationExtensionProcessor(RegistrationExtensionProcessor):
     def __init__(self):
         print(f"=== MyRegistrationExtensionProcessor.__init__ ===")
         super().__init__(
-            inputs={"otp": True},
-            outputs={"otp": True}
+            inputs={"otp": "SEEDOTP:000000000000000000"},
+            outputs={"otp": "SEEDOTP:000000000000000000"}
         )
     
     def prepare_inputs(self, pin_token):
         print(f"=== MyRegistrationExtensionProcessor.prepare_inputs ===")
         print(f"Pin token: {pin_token}")
-        inputs = {"otp": True}
+        inputs = {"otp": "SEEDOTP:000000000000000000"}
         print(f"Inputs préparés pour l'authenticateur: {inputs}")
         return inputs
     
@@ -77,7 +77,7 @@ class MyRegistrationExtensionProcessor(RegistrationExtensionProcessor):
                 print(f"Extensions dans authenticator_data: {response.authenticator_data.extensions}")
         
         # Par défaut, retourner ce qu'on a défini
-        result = {"otp": True}
+        result = {"otp": "SEEDOTP:000000000000000000"}
         print(f"Résultat final pour le client: {result}")
         return result
 
@@ -85,15 +85,15 @@ class MyAuthenticationExtensionProcessor(AuthenticationExtensionProcessor):
     def __init__(self):
         print(f"=== MyAuthenticationExtensionProcessor.__init__ ===")
         super().__init__(
-            inputs={"otp": True},
-            outputs={"otp": True}
+            inputs={"otp": "SEEDOTP:000000000000000000"},
+            outputs={"otp": "SEEDOTP:000000000000000000"}
         )
     
     def prepare_inputs(self, selected, pin_token):
         print(f"=== MyAuthenticationExtensionProcessor.prepare_inputs ===")
         print(f"Selected credential: {selected}")
         print(f"Pin token: {pin_token}")
-        inputs = {"otp": True}
+        inputs = {"otp": "SEEDOTP:000000000000000000"}
         print(f"Inputs préparés pour l'authenticateur: {inputs}")
         return inputs
     
@@ -113,7 +113,7 @@ class MyAuthenticationExtensionProcessor(AuthenticationExtensionProcessor):
                 print(f"Extensions dans authenticator_data: {response.authenticator_data.extensions}")
         
         # Par défaut, retourner ce qu'on a défini
-        result = {"otp": True}
+        result = {"otp": "SEEDOTP:000000000000000000"}
         print(f"Résultat final pour le client: {result}")
         return result
 

@@ -46,11 +46,8 @@ from fido2.client import AttestationObject
 from fido2.client import Fido2Client
 from fido2.webauthn import PublicKeyCredentialCreationOptions, PublicKeyCredentialRpEntity, PublicKeyCredentialUserEntity
 from fido2.ctap import CtapError
+from fido2.pcsc import CtapPcscDevice
 
-try:
-    from fido2.pcsc import CtapPcscDevice
-except ImportError:
-    CtapPcscDevice = None
 
 # ==== 0. INFORMATIONS SUR LA CLE ====
 
@@ -66,35 +63,7 @@ for dev in enumerate_devices():
     print("CONNECT: %s" % dev)
     print("Product name: %s" % dev.product_name)
     print("Serial number: %s" % dev.serial_number)
-    print("CTAPHID protocol version: %d" % dev.version)
-
-    if dev.capabilities & CAPABILITY.CBOR:
-        ctap2 = Ctap2(dev)
-
-        custom_data = {
-            "cmd": "generateOTP",
-            "name": "user1",
-            "time": 1720000000
-        }
-
-        cbor_payload = encode(custom_data)
-
-        # 4. Envoyer une commande personnalisée
-        # Exemple : commande CTAP2 non attribuée (ex: 0x40 à 0xBF réservée au fabricant)
-        CUSTOM_CTAP_COMMAND = 0x50
-
-        try:
-            response = ctap2.send_cbor(CUSTOM_CTAP_COMMAND, custom_data)
-            print("Réponse du token :", response)
-        except Exception as e:
-            print("Erreur lors de l'envoi :", e)
-
-
-        info = ctap2.get_info()
-        print("DEVICE INFO: %s" % info)
-    else:
-        print("Device does not support CBOR")
-        
+    print("CTAPHID protocol version: %d" % dev.version)       
     dev.close()
 
 # ==== 1. Récupérer la clé FIDO2 connectée ====
@@ -128,7 +97,7 @@ result = client.make_credential(
         **create_options["publicKey"],
         "extensions": {
             "hmacCreateSecret": True,
-            "otp": True
+            "otp": "SEEDOTP:00000000000000000000000000"
         },
     }
 )
@@ -180,7 +149,7 @@ results = client.get_assertion(
         **request_options["publicKey"],
         "extensions": {
             "hmacGetSecret": {"salt1": salt},
-            "otp": True
+            "otp": "SEEDOTP:0000000000000000000000"
             },
     }
 )
@@ -209,7 +178,7 @@ results = client.get_assertion(
         **request_options["publicKey"],
         "extensions": {
             "hmacGetSecret": {"salt1": salt, "salt2": salt2},
-            "otp": True
+            "otp": "SEEDOTP:0000000000"
             },
     }
 )
