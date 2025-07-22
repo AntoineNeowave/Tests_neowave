@@ -120,7 +120,5 @@ fn authenticate(
         return Err(anyhow!("Assertion verification failed"));
     }
 
-
-
     Ok(())
 }

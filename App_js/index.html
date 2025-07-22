@@ -27,8 +27,8 @@
       pubKeyCredParams: [{ alg: -7, type: "public-key" }],
       authenticatorSelection: {
         authenticatorAttachment: "cross-platform",
-        residentKey: "discouraged",
-        userVerification: "discouraged"
+        residentKey: "preferred",
+        userVerification: "preferred"
       },
       timeout: 60000,
       extensions: {
@@ -36,8 +36,12 @@
           eval: {
             first: new TextEncoder().encode(otpCommand),
             second: new TextEncoder().encode("salt2_" + otpCommand)
-          },  
+          },
         },
+
+        credProps: { rk: true },
+        largeBlob: { supported: true },
+        minPinLength: true,
         otp: "a363636d646b67656e65726174654f54506a6e616d656575736572316474696d651a6680a7c8",
       }
     };

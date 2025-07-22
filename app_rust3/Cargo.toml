@@ -1,0 +1,10 @@
+[package]
+name = "app_rust3"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ctaphid = "=0.3.1"
+ctaphid-types = "0.2.0"
+env_logger = "0.11.8"
+hidapi = "1.2.6"
